@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>微信支付分Demo</title>
+  <script src="https://res.wx.qq.com/open/js/jweixin-1.5.0.js"></script>
+  <script src="http://libs.baidu.com/jquery/2.1.4/jquery.min.js"></script>
+  <script type="text/javascript">
+
+/**
+记录微信支付分对接遇到的问题
+1.商户Key一定要核对，并且使用api秘钥加密
+2.sign的加密方法，一定是HMAC-SHA256加密
+3.在Vue使用的wx-jssdk时候(版本过低)，可以在index.js页面直接引入然后import引入
+4.在调用wx.invoke函数的时候，一定要先进行wx.config的验证
+5.vue项目部署的时候，反向代理无效，不能够使用/api这种重写
+6.https://copyfuture.com/blogs-details/20191106155205488a64zh5w2tnpwhsk------地址
+*/
+
+    var appidG = "";
+    var timestampG = "";
+    var nonceStrG = "";
+    var signatureG = "";
+    var sign = "";
+    var out_request_no = '';
+    $(function () {
+      var signUrl = window.location.href.split('#')[0];
+      $.ajax({
+        url: `http://114.80.222.219:8088/noConfirmation/getSignature?url=${signUrl}`,
+        method: "get",
+        contentType: "application/x-www-form-urlencoded",
+        success: function (data) {
+          appidG = data.appId;
+          timestampG = data.timestamp;
+          nonceStrG = data.nonceStr;
+          signatureG = data.signature;
+          wx.config({
+            debug: true,
+            appId: data.appId,
+            timestamp: data.timestamp,
+            nonceStr: data.nonceStr,
+            signature: data.signature,
+            jsApiList: ['openBusinessView']
+          })
+        }
+      });
+    });
+
+    /**
+     * 跳转微信支付分
+     */
+    function goToWXScore() {
+      // console.log("appidG:" + appidG);
+      // console.log("timestampG:" + timestampG);
+      // console.log("nonceStrG:" + nonceStrG);
+      // console.log("signatureG:" + signatureG);
+      $.ajax({
+        url: `http://114.80.222.219:8088/noConfirmation/user-service-auth?nonceStr=${nonceStrG}&timestamp=${timestampG}`,
+        method: "get",
+        success: function (res) {
+          sign = res.data.sign
+          out_request_no = res.data.out_request_no
+          wx.ready(function () {
+            wx.checkJsApi({
+              jsApiList: ['openBusinessView'], // 需要检测的JS接口列表
+              success: function (res) {
+                // 以键值对的形式返回，可用的api值true，不可用为false
+                // 如：{"checkResult":{"openBusinessView":true},"errMsg":"checkJsApi:ok"}
+                if (res.checkResult.openBusinessView) {
+                  alert("mch_id=1507784641&service_id=00004000000000158140447549626602&out_request_no=" + out_request_no + "&timestamp=" + timestampG + "" +
+                    "&nonce_str=" + nonceStrG + "&sign_type=HMAC-SHA256&sign=" + sign + "")
+                  wx.invoke(
+                    'openBusinessView', {
+                    businessType: 'wxpayScoreEnable',
+                    queryString: "mch_id=1507784641&service_id=00004000000000158140447549626602&out_request_no=" + out_request_no + "&timestamp=" + timestampG + "" +
+                      "&nonce_str=" + nonceStrG + "&sign_type=HMAC-SHA256&sign=" + sign + ""
+                  },
+                    function (res) {
+                      // 从微信侧小程序返回时会执行这个回调函数
+                      if (parseInt(res.err_code) === 0) {
+                        // 返回成功
+                      } else {
+                        // 返回失败
+                      }
+                    });
+                }
+              }
+            });
+          });
+        }
+      });
+    }
+  </script>
+</head>
+
+<body>
+  <div>
+    <button onclick="goToWXScore()" value="跳转支付分">跳转支付分</button>
+  </div>
+</body>
+
+</html>
